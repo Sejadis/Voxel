@@ -974,50 +974,37 @@ public class Chunk : MonoBehaviour
     {
         public int3 position;
         public int3 dimension;
-        public float scale;
-        public float scale2;
-        public float offset;
-        public float offset2;
         public int groundHeight;
         public int terrainHeight;
-        public float threshold;
-        public float caveThreshold;
-        public int relativeCaveHeight;
-        public float caveEntranceThreshold;
         public NativeArray<float> map;
+        public WorldGenerator.ChunkSettings Settings;
 
         public void Execute()
         {
+            int voxelValue;
             var pos = new int3();
-            var t = 0;
             var solidGround = 2;
             var dim2D = new int2(dimension.x, dimension.z);
-            // for (int x = 0; x < dimension.x; x++)
-            // {
-            //     pos.x = x;
             for (int x = 0; x < dimension.x; x++)
             {
                 pos.x = position.x + x;
-                var ratioNoise = Noise.Perlin2D(new int2(pos.x, 1), 1f, .1234f, new int2(1234, 1));
+                var ratioNoise = Noise.Perlin2D(new int2(pos.x, 1), Settings.ratioNoise.scale,
+                    Settings.ratioNoise.offset, new int2(1234, 1));
                 for (int z = 0; z < dimension.z; z++)
                 {
                     pos.z = position.z + z;
-                    var noise2D = Noise.Perlin2D(new int2(pos.x, pos.z), scale, offset, dim2D);
+                    var noise2D = Noise.Perlin2D(new int2(pos.x, pos.z), Settings.surfaceNoise.scale,
+                        Settings.surfaceNoise.offset, dim2D);
                     var terrain = Mathf.CeilToInt(noise2D * terrainHeight);
                     var surfaceHeight = terrain + groundHeight;
 
                     for (int y = 0; y < dimension.y; y++)
                     {
                         pos.y = position.y + y;
-                        // for (int z = 0; z < dimension.z; z++)
-                        // {
-                        //     pos.z = z;
-                        // var noise = Noise.Perlin2D(noisePos, scale, offset, ChunkWidth);
-                        // var noisePos = new int3(position.x + x, position.y + y, position.z + z);
-                        var noise = Noise.Perlin3D(pos, scale, offset, dimension);
-                        // var terrain = Mathf.CeilToInt(noise * terrainHeight);
-                        // var surfaceHeight = terrain + groundHeight;
-                        var entranceNoise = Noise.Perlin3D(pos, scale2, offset2, dimension);
+                        var surfaceNoise = Noise.Perlin3D(pos, Settings.surfaceNoise.scale,
+                            Settings.surfaceNoise.offset, dimension);
+                        var entranceNoise = Noise.Perlin3D(pos, Settings.caveSettings.entranceNoise.scale,
+                            Settings.caveSettings.entranceNoise.offset, dimension);
                         var maxSurfaceHeight = terrain -
                                                (y / 2f * Noise.Perlin2D(new Vector2(pos.x, pos.z), 0.5f,
                                                    345.345f,
@@ -1025,34 +1012,20 @@ public class Chunk : MonoBehaviour
                         //subsurface
                         if (y < surfaceHeight - solidGround)
                         {
-                            // break;
                             // solid ground at the bottom
                             if (y <= solidGround)
                             {
-                                t = 0;
+                                voxelValue = 0;
                             }
                             //caves
-                            // else if (y < surfaceHeight - caveThreshold)
-                            else if (y < surfaceHeight + relativeCaveHeight
-                            ) // || entranceNoise > caveEntranceThreshold)
+                            else if (y < surfaceHeight + Settings.caveSettings.relativeCaveHeight)
                             {
                                 var caveFloorHeight = solidGround + 5;
-                                //cave floor
-                                // if (y <= caveFloorHeight)
-                                // {
-                                //     var n1 = Noise.Perlin2D(new Vector2(pos.x, pos.z), 0.5f, 690823.234f,
-                                //         dim2D);
-                                //     var n2 = Noise.Perlin2D(new Vector2(pos.x, pos.z), 3f, 690823.234f,
-                                //         dim2D);
-                                //     var n = n1 * ratioNoise + (1 - ratioNoise) * n2;
-                                //     t = y <= caveFloorHeight * 2 * n
-                                //         ? 0
-                                //         : 1;
-                                // }
-
-                                // else (y < surfaceHeight + relativeCaveHeight)
-                                if (noise * noise < caveThreshold * caveThreshold)
+                                var caveNoise = Noise.Perlin3D(pos, Settings.caveSettings.caveNoise.scale,
+                                    Settings.caveSettings.caveNoise.offset, dimension);
+                                if (Settings.caveSettings.caveThreshold.IsWithinThresholdSqr(caveNoise * caveNoise))
                                 {
+                                    //cave floor
                                     if (y <= caveFloorHeight)
                                     {
                                         var n1 = Noise.Perlin2D(new Vector2(pos.x, pos.z), 0.5f, 690823.234f,
@@ -1060,47 +1033,46 @@ public class Chunk : MonoBehaviour
                                         var n2 = Noise.Perlin2D(new Vector2(pos.x, pos.z), 3f, 690823.234f,
                                             dim2D);
                                         var n = n1 * ratioNoise + (1 - ratioNoise) * n2;
-                                        t = y <= caveFloorHeight * 2 * n
+                                        voxelValue = y <= caveFloorHeight * 2 * n
                                             ? 0
                                             : 1;
                                     }
                                     else
                                     {
-                                        t = 1;
+                                        voxelValue = 1;
                                     }
-
-                                    // t = noise * noise > caveThreshold * caveThreshold ? 0 : 1;
                                 }
                                 else
                                 {
-                                    t = 0;
+                                    voxelValue = 0;
                                 }
                             }
                             else
                             {
-                                t = 1;
+                                voxelValue = 0;
                             }
                         }
                         //surface
-                        else if (y >= surfaceHeight + relativeCaveHeight && y <= surfaceHeight)
+                        else if (y >= surfaceHeight + Settings.caveSettings.relativeCaveHeight && y <= surfaceHeight)
                         {
-                            t = entranceNoise < caveEntranceThreshold ? 1 : 0;
-                            // t = 0;
+                            voxelValue = Settings.caveSettings.entranceThreshold.IsWithinThreshold(entranceNoise)
+                                ? 1
+                                : 0;
                         }
                         //above surface
-                        else if (noise > threshold && y <= surfaceHeight + maxSurfaceHeight
-                        ) //terrainHeight + groundHeight)
+                        else if (Settings.surfaceThreshold.IsWithinThreshold(surfaceNoise) &&
+                                 y <= surfaceHeight + maxSurfaceHeight)
                         {
-                            t = 0;
+                            voxelValue = 0;
                         }
 
                         else
                         {
-                            t = 1;
+                            voxelValue = 1;
                         }
 
                         var index = GetIndexForPos(x, y, z, dimension);
-                        map[index] = t;
+                        map[index] = voxelValue;
                     }
                 }
             }

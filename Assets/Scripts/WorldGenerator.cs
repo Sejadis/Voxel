@@ -76,20 +76,71 @@ public class Meshing
 public class WorldGenerator : MonoBehaviour
 {
     [Serializable]
-    public class ChunkSettings
+    public struct ChunkSettings
     {
-        public int ChunkWidth = 5;
-        public int ChunkHeight = 256;
-        public float scale = 1;
-        public float scale2 = 1;
-        public float offset = 1;
-        public float offset2 = 1;
-        [Range(0, 1)] public float threshold = 0.45f;
-        public int groundHeight = 10;
-        public int terrainHeight = 5;
-        [Range(0, 1)] public float caveThreshold = 3;
-        public int relativeCaveHeight = 5;
-        [Range(0, 1)] public float caveEntranceThreshold = 0.5f;
+        public int ChunkWidth;
+        public int ChunkHeight;
+        public int groundHeight;
+        public int terrainHeight;
+        public NoiseSettings surfaceNoise;
+        public Threshold surfaceThreshold;
+        public NoiseSettings ratioNoise;
+        [Range(0, 1)] public float threshold;
+        public CaveSettings caveSettings;
+        [Serializable]
+        public struct CaveSettings
+        {
+            public Threshold caveThreshold;
+            public NoiseSettings caveNoise;
+            public Threshold entranceThreshold;
+            public NoiseSettings entranceNoise;
+            public int relativeCaveHeight;
+        }
+        [Serializable]
+        public struct NoiseSettings
+        {
+            public float scale;
+            public float offset;
+
+            public NoiseSettings(float scale, float offset)
+            {
+                this.scale = scale;
+                this.offset = offset;
+            }
+        }
+        [Serializable]
+        public struct Threshold
+        {
+            [Range(-1, 1)] public float min;
+            [Range(-1, 1)] public float max;
+
+            public bool IsWithinThreshold(float value)
+            {
+                return (min < 0 || value >= min) && (max < 0 || value <= max);
+            }
+            
+            public bool IsWithinThresholdSqr(float value)
+            {
+                
+                return (min < 0 || value >= min * min) && (max < 0 || value <= max * max);
+            }
+        }
+
+        // public ChunkSettings()
+        // {
+        //     ChunkWidth = 5;
+        //     ChunkHeight = 256;
+        //     scale = 1;
+        //     scale2 = 1;
+        //     offset = 1;
+        //     offset2 = 1;
+        //     groundHeight = 10;
+        //     threshold = 0.45f;
+        //     terrainHeight = 5;
+        //     caveThreshold = 3;
+        //     relativeCaveHeight = 5;
+        //     caveEntranceThreshold = 0.5f;
+        // }
     }
 
     public bool renderMesh;
@@ -301,16 +352,16 @@ public class WorldGenerator : MonoBehaviour
                         var job = new Chunk.BuildJobBurstParallel()
                         {
                             dimension = adjDimension,
-                            scale = chunkSettings.scale,
-                            scale2 = chunkSettings.scale2,
-                            offset = chunkSettings.offset,
-                            offset2 = chunkSettings.offset2,
+                            // scale = chunkSettings.scale,
+                            // scale2 = chunkSettings.scale2,
+                            // offset = chunkSettings.offset,
+                            // offset2 = chunkSettings.offset2,
                             position = posInt,
                             groundHeight = chunkSettings.groundHeight,
                             terrainHeight = chunkSettings.terrainHeight,
                             map = map,
                             threshold = chunkSettings.threshold,
-                            caveThreshold = chunkSettings.caveThreshold,
+                            // caveThreshold = chunkSettings.caveThreshold,
                         };
                         handle = job.Schedule(length, batchSize);
                     }
@@ -319,18 +370,15 @@ public class WorldGenerator : MonoBehaviour
                         var job = new Chunk.BuildJobBurst()
                         {
                             dimension = adjDimension,
-                            scale = chunkSettings.scale,
-                            scale2 = chunkSettings.scale2,
-                            offset = chunkSettings.offset,
-                            offset2 = chunkSettings.offset2,
                             position = posInt,
                             groundHeight = chunkSettings.groundHeight,
                             terrainHeight = chunkSettings.terrainHeight,
                             map = map,
-                            threshold = chunkSettings.threshold,
-                            caveThreshold = chunkSettings.caveThreshold,
-                            relativeCaveHeight = chunkSettings.relativeCaveHeight,
-                            caveEntranceThreshold = chunkSettings.caveEntranceThreshold,
+                            // threshold = chunkSettings.threshold,
+                            // caveThreshold = chunkSettings.caveThreshold,
+                            // relativeCaveHeight = chunkSettings.relativeCaveHeight,
+                            // caveEntranceThreshold = chunkSettings.caveEntranceThreshold,
+                            Settings =  chunkSettings,
                         };
                         handle = job.Schedule();
 #if meshjob
@@ -361,9 +409,9 @@ public class WorldGenerator : MonoBehaviour
                     var job = new Chunk.BuildJob()
                     {
                         dimension = dimension,
-                        scale = chunkSettings.scale,
-                        offset = chunkSettings.offset,
-                        offset2 = chunkSettings.offset2,
+                        // scale = chunkSettings.scale,
+                        // offset = chunkSettings.offset,
+                        // offset2 = chunkSettings.offset2,
                         groundHeight = chunkSettings.groundHeight,
                         terrainHeight = chunkSettings.terrainHeight,
                         position = posInt,
@@ -502,9 +550,9 @@ public class WorldGenerator : MonoBehaviour
                 chunk.position = pos;
 
 
-                chunk.scale = chunkSettings.scale;
-                chunk.offset = chunkSettings.offset;
-                chunk.offset2 = chunkSettings.offset2;
+                // chunk.scale = chunkSettings.scale;
+                // chunk.offset2 = chunkSettings.offset2;
+                // chunk.offset = chunkSettings.offset;
                 chunk.Build(posInt, dimension);
 
                 chunks.Add(chunk);
