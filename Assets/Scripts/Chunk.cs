@@ -1009,9 +1009,13 @@ public class Chunk : MonoBehaviour
                                                (y / 2f * Noise.Perlin2D(new Vector2(pos.x, pos.z), 0.5f,
                                                    345.345f,
                                                    new int2(dimension.x, dimension.z)));
-                        //subsurface
-                        if (y < surfaceHeight - solidGround)
+                        //surface + below
+                        if (y <= surfaceHeight)
                         {
+                            var caveNoise = Noise.Perlin3D(pos, Settings.caveSettings.caveNoise.scale,
+                                Settings.caveSettings.caveNoise.offset, dimension);
+                            var isCave =
+                                Settings.caveSettings.caveThreshold.IsWithinThresholdSqr(caveNoise * caveNoise);
                             // solid ground at the bottom
                             if (y <= solidGround)
                             {
@@ -1021,9 +1025,8 @@ public class Chunk : MonoBehaviour
                             else if (y < surfaceHeight + Settings.caveSettings.relativeCaveHeight)
                             {
                                 var caveFloorHeight = solidGround + 5;
-                                var caveNoise = Noise.Perlin3D(pos, Settings.caveSettings.caveNoise.scale,
-                                    Settings.caveSettings.caveNoise.offset, dimension);
-                                if (Settings.caveSettings.caveThreshold.IsWithinThresholdSqr(caveNoise * caveNoise))
+                                //is a cave
+                                if (isCave)
                                 {
                                     //cave floor
                                     if (y <= caveFloorHeight)
@@ -1037,35 +1040,45 @@ public class Chunk : MonoBehaviour
                                             ? 0
                                             : 1;
                                     }
+                                    //actual cave
                                     else
                                     {
                                         voxelValue = 1;
                                     }
                                 }
+                                //solid ground
                                 else
                                 {
                                     voxelValue = 0;
                                 }
                             }
+                            //cave entrance
+                            else if (isCave && Settings.caveSettings.entranceThreshold.IsWithinThreshold(entranceNoise))
+                            {
+                                voxelValue = 1;
+                            }
+                            //solid surface
                             else
                             {
                                 voxelValue = 0;
                             }
                         }
                         //surface
-                        else if (y >= surfaceHeight + Settings.caveSettings.relativeCaveHeight && y <= surfaceHeight)
-                        {
-                            voxelValue = Settings.caveSettings.entranceThreshold.IsWithinThreshold(entranceNoise)
-                                ? 1
-                                : 0;
-                        }
+                        // else if (y >= surfaceHeight + Settings.caveSettings.relativeCaveHeight && y <= surfaceHeight)
+                        // {
+                        //     voxelValue = Settings.caveSettings.entranceThreshold.IsWithinThreshold(entranceNoise)
+                        //         ? 1
+                        //         : 0;
+                        // }
+                        
                         //above surface
+                        //TODO separate noise 
                         else if (Settings.surfaceThreshold.IsWithinThreshold(surfaceNoise) &&
                                  y <= surfaceHeight + maxSurfaceHeight)
                         {
                             voxelValue = 0;
                         }
-
+                        //air 
                         else
                         {
                             voxelValue = 1;
