@@ -24,9 +24,7 @@ using UnityEngine;
             pos.y = posFromIndex.y + position.y;
             pos.z = posFromIndex.z + position.z;
 
-            // var x = posFromIndex.x;
             var y = posFromIndex.y;
-            // var z = posFromIndex.z;
 
             int voxelValue;
             var dim2D = new int2(dimension.x, dimension.z);
@@ -39,8 +37,6 @@ using UnityEngine;
                 Settings.surfaceNoise.offset, dim2D);
             var terrain = Mathf.CeilToInt(noise2D * terrainHeight);
             var surfaceHeight = terrain + groundHeight;
-
-            pos.y = position.y + y;
             var surfaceNoise = Noise.Perlin3D(pos, Settings.surfaceNoise.scale,
                 Settings.surfaceNoise.offset, dimension);
             var entranceNoise = Noise.Perlin3D(pos, Settings.caveSettings.entranceNoise.scale,
@@ -115,8 +111,7 @@ using UnityEngine;
             {
                 voxelValue = 1;
             }
-
-            // map[GetIndexForPos(x, y, z, dimension)] = voxelValue;
+            
             map[index] = voxelValue;
         }
     }

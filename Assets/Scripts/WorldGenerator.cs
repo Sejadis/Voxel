@@ -1,5 +1,6 @@
 ﻿// #define injectData
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,6 +13,8 @@ using Debug = UnityEngine.Debug;
 
 public class WorldGenerator : MonoBehaviour
 {
+    private int3 lastChunkPosition;
+    public Transform cameraTransform;
     public int ChunkWidth;
     public int ChunkHeight;
 
@@ -24,7 +27,7 @@ public class WorldGenerator : MonoBehaviour
     public List<int> batchSizes = new List<int>();
     public int batchSize = 1;
 
-    private List<Chunk> chunks = new List<Chunk>();
+    private Dictionary<int3, Chunk> chunks = new Dictionary<int3, Chunk>();
 
     public bool useParallel;
 
@@ -125,7 +128,7 @@ public class WorldGenerator : MonoBehaviour
     {
         foreach (var chunk in chunks)
         {
-            Destroy(chunk.gameObject);
+            Destroy(chunk.Value.gameObject);
         }
 
         chunks.Clear();
@@ -137,6 +140,7 @@ public class WorldGenerator : MonoBehaviour
         watch.Start();
         var dimension = new int3(ChunkWidth, ChunkHeight, ChunkWidth);
         var index = 0;
+        var chunkList = new List<Chunk>();
         NativeArray<JobHandle> handles =
             new NativeArray<JobHandle>((viewDistance * 2 + 1) * (viewDistance * 2 + 1), Allocator.Temp);
         List<NativeArray<float>> maps = new List<NativeArray<float>>();
@@ -234,7 +238,7 @@ public class WorldGenerator : MonoBehaviour
                 verticesList.Add(verts);
 
                 maps.Add(map);
-                chunks.Add(chunk);
+                chunkList.Add(chunk);
                 handles[index++] = handle;
             }
         }
@@ -242,9 +246,9 @@ public class WorldGenerator : MonoBehaviour
         // Debug.Log(watch.Elapsed.ToString());
 
         JobHandle.CompleteAll(handles);
-        for (int i = 0; i < chunks.Count; i++)
+        for (int i = 0; i < chunkList.Count; i++)
         {
-            chunks[i].map = maps[i].ToArray();
+            chunkList[i].map = maps[i].ToArray();
             maps[i].Dispose();
 
             Vector3[] verts = new Vector3[verticesList[i].Length];
@@ -255,9 +259,10 @@ public class WorldGenerator : MonoBehaviour
             }
 
             var tris = triangleList[i].ToArray();
-            chunks[i].SetMesh(verts, tris);
+            chunkList[i].SetMesh(verts, tris);
             verticesList[i].Dispose();
             triangleList[i].Dispose();
+            chunks[new int3(chunkList[i].position)] = chunkList[i];
         }
 
         handles.Dispose();
@@ -309,5 +314,165 @@ public class WorldGenerator : MonoBehaviour
         // }
 
         // Debug.Log(watch.Elapsed.ToString());
+    }
+    
+    private void Update()
+    {
+        int3 pos = new int3(cameraTransform.position);
+        pos.x -= Mathf.Sign(pos.x) < 0 ? ChunkWidth - pos.x % ChunkWidth : pos.x % ChunkWidth;
+        pos.z -= Mathf.Sign(pos.z) < 0 ? ChunkWidth - pos.z % ChunkWidth : pos.z % ChunkWidth;
+        pos.x /= ChunkWidth;
+        pos.z /= ChunkWidth;
+        pos.y = 0;
+        var delta = pos - lastChunkPosition;
+        lastChunkPosition = pos;
+        if (!delta.Equals(int3.zero))
+        {
+            var thisPos = pos * ChunkWidth;
+            var change = delta * ChunkWidth;
+            var buildPos = thisPos + change * viewDistance;
+            var removePos = thisPos - change * (viewDistance + 1);
+
+            List<int3> remove = new List<int3>();
+            List<int3> add = new List<int3>();
+            for (int i = -viewDistance; i <= viewDistance; i++)
+            {
+                var offset = i * ChunkWidth;
+                if (delta.x != 0)
+                {
+                    buildPos.z = thisPos.z + offset;
+                    removePos.z = thisPos.z + offset;
+                }
+                else if (delta.z != 0)
+                {
+                    buildPos.x = thisPos.x + offset;
+                    removePos.x = thisPos.x + offset;
+                }
+                else
+                {
+                    //whats happening here? that shouldn't be possible
+                    continue;
+                }
+
+                add.Add(buildPos);
+                remove.Add(removePos);
+            }
+
+            foreach (var int3 in remove)
+            {
+                Destroy(chunks[int3].gameObject);
+                chunks.Remove(int3);
+            }
+
+            remove.Clear();
+
+            foreach (var int3 in add)
+            {
+                BuildChunk(int3);
+            }
+
+            add.Clear();
+        }
+    }
+
+    [ContextMenu("Load new Chunk")]
+    public void LoadChunk()
+    {
+        var pos = lastChunkPosition;
+        pos.x *= ChunkWidth;
+        pos.y *= ChunkHeight;
+        pos.z *= ChunkWidth;
+        if (!chunks.ContainsKey(pos))
+        {
+            BuildChunk(pos);
+        }
+        else
+        {
+            Destroy(chunks[pos].gameObject);
+            chunks.Remove(pos);
+        }
+    }
+
+    public void BuildChunk(int3 position)
+    {
+        var dimension = new int3(ChunkWidth, ChunkHeight, ChunkWidth);
+        var go = new GameObject();
+        go.transform.SetParent(transform);
+        var posVector = new Vector3(position.x, position.y, position.z);
+        go.transform.position = posVector;
+        var chunk = go.AddComponent<Chunk>();
+        chunk.position = posVector;
+
+        var adjDimension = dimension;
+        adjDimension.x++;
+        adjDimension.z++;
+
+        var length = adjDimension.x * adjDimension.y * adjDimension.z;
+        var map = new NativeArray<float>(length, Allocator.TempJob);
+
+        var verts = new NativeList<float3>(Allocator.TempJob);
+        var tris = new NativeList<int>(Allocator.TempJob);
+
+        JobHandle handle;
+
+        if (useParallel)
+        {
+            var job = new BuildJobBurstParallel()
+            {
+                dimension = adjDimension,
+                position = position,
+                groundHeight = terrainSettings.groundHeight,
+                terrainHeight = terrainSettings.terrainHeight,
+                map = map,
+                Settings = terrainSettings,
+            };
+            handle = job.Schedule(length, batchSize);
+        }
+        else
+        {
+            var job = new BuildJobBurst()
+            {
+                dimension = adjDimension,
+                position = position,
+                groundHeight = terrainSettings.groundHeight,
+                terrainHeight = terrainSettings.terrainHeight,
+                map = map,
+                Settings = terrainSettings,
+            };
+            handle = job.Schedule();
+        }
+
+        var job2 = new BuildMeshJob()
+        {
+            chunkHeight = ChunkHeight,
+            chunkWidth = ChunkWidth,
+            map = map,
+#if injectData
+                            VertexOffset = vertexOffset,
+                            EdgeDirection = EdgeDirection,
+                            EdgeConnection = edgeConnection,
+                            CubeEdgeFlags = CubeEdgeFlags,
+                            TriangleConnectionTable = TriangleConnectionTable,
+#endif
+            tris = tris,
+            verts = verts,
+        };
+        handle = job2.Schedule(handle);
+        handle.Complete();
+        chunk.map = map.ToArray();
+        map.Dispose();
+
+        Vector3[] vertsV3 = new Vector3[verts.Length];
+        var x = 0;
+        foreach (var vertex in verts)
+        {
+            vertsV3[x++] = new Vector3(vertex.x, vertex.y, vertex.z);
+        }
+
+        var trisArr = tris.ToArray();
+        chunk.SetMesh(vertsV3, trisArr);
+        verts.Dispose();
+        tris.Dispose();
+        chunks[position] = chunk;
     }
 }
