@@ -11,7 +11,7 @@ using UnityEngine;
         public int3 dimension;
         public int groundHeight;
         public int terrainHeight;
-        public NativeArray<float> map;
+        public NativeArray<int> map;
         public TerrainSettings Settings;
 
         public void Execute()

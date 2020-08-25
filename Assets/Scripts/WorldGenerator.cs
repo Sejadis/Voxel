@@ -143,7 +143,7 @@ public class WorldGenerator : MonoBehaviour
         var chunkList = new List<Chunk>();
         NativeArray<JobHandle> handles =
             new NativeArray<JobHandle>((viewDistance * 2 + 1) * (viewDistance * 2 + 1), Allocator.Temp);
-        List<NativeArray<float>> maps = new List<NativeArray<float>>();
+        List<NativeArray<int>> maps = new List<NativeArray<int>>();
 
         List<NativeList<int>> triangleList = new List<NativeList<int>>();
         List<NativeList<float3>> verticesList = new List<NativeList<float3>>();
@@ -183,7 +183,7 @@ public class WorldGenerator : MonoBehaviour
                 adjDimension.z++;
 
                 var length = adjDimension.x * adjDimension.y * adjDimension.z;
-                var map = new NativeArray<float>(length, Allocator.TempJob);
+                var map = new NativeArray<int>(length, Allocator.TempJob);
 
                 var verts = new NativeList<float3>(Allocator.TempJob);
                 var tris = new NativeList<int>(Allocator.TempJob);
@@ -408,7 +408,7 @@ public class WorldGenerator : MonoBehaviour
         adjDimension.z++;
 
         var length = adjDimension.x * adjDimension.y * adjDimension.z;
-        var map = new NativeArray<float>(length, Allocator.TempJob);
+        var map = new NativeArray<int>(length, Allocator.TempJob);
 
         var verts = new NativeList<float3>(Allocator.TempJob);
         var tris = new NativeList<int>(Allocator.TempJob);

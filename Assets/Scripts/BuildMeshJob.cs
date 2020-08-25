@@ -584,7 +584,7 @@ using UnityEngine;
         #endregion
 
 //*/
-        [ReadOnly] public NativeArray<float> map;
+        [ReadOnly] public NativeArray<int> map;
         public NativeList<float3> verts;
         public NativeList<int> tris;
 
@@ -595,12 +595,11 @@ using UnityEngine;
         // [ReadOnly] public NativeArray<int> TriangleConnectionTable;
         [ReadOnly] public int chunkWidth;
         [ReadOnly] public int chunkHeight;
-        [ReadOnly] public float threshold;
 
         public void Execute()
         {
             int ix, iy, iz, currentIndex = 0;
-            NativeArray<float> cubeData = new NativeArray<float>(8, Allocator.Temp);
+            NativeArray<int> cubeData = new NativeArray<int>(8, Allocator.Temp);
             for (int x = 0; x < chunkWidth; x++)
             {
                 for (int y = 0; y < chunkHeight - 1; y++)
@@ -632,9 +631,9 @@ using UnityEngine;
         private float GetOffset(float v1, float v2)
         {
             float delta = v2 - v1;
-            return (delta == 0.0f) ? 0.5f : (0.5f - v1) / delta;
+            return (delta == 0.0f) ? 0.2f : (0.2f - v1) / delta;
         }
-        public void BuildMeshData(int3 position, NativeArray<float> cubeData, ref int currentIndex)
+        public void BuildMeshData(int3 position, NativeArray<int> cubeData, ref int currentIndex)
         {
             NativeArray<float3> EdgeVertex = new NativeArray<float3>(12, Allocator.Temp);
             float offset = 2;

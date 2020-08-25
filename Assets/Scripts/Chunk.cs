@@ -9,7 +9,7 @@ using UnityEngine;
 public class Chunk : MonoBehaviour
 {
     public Vector3 position;
-    public float[] map;
+    public int[] map;
     public static Material mat;
 
     public void SetMesh(Vector3[] verts, int[] tris)
