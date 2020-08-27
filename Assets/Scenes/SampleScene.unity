@@ -729,14 +729,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 932163f3c7495c2489a8540a5d64b667, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  newPosition:
-    x: 0
-    y: 0
-    z: 0
   cameraTransform: {fileID: 963194228}
   ChunkWidth: 16
   ChunkHeight: 128
-  viewDistance: 2
+  viewDistance: 3
   terrainSettings:
     groundHeight: 30
     terrainHeight: 20

@@ -12,12 +12,38 @@ public class Chunk : MonoBehaviour
     public int[] map;
     public static Material mat;
 
-    public void SetMesh(Vector3[] verts, int[] tris)
+    public void SetMesh(Vector3[] verts, int[] tris, Vector2[] uvs)
     {
         Mesh m = new Mesh();
         m.vertices = verts;
         m.triangles = tris;
+        m.uv = uvs;
         m.RecalculateNormals();
+        m.RecalculateTangents();
+        MeshFilter meshFilter = GetComponent<MeshFilter>();
+        if (meshFilter == null)
+        {
+            meshFilter = gameObject.AddComponent<MeshFilter>();
+        }
+
+        MeshRenderer meshRenderer = gameObject.GetComponent<MeshRenderer>();
+        if (meshRenderer == null)
+        {
+            meshRenderer = gameObject.AddComponent<MeshRenderer>();
+        }
+
+        meshRenderer.material = mat;
+        meshFilter.mesh = m;
+    }
+    
+    public void SetMesh(Vector3[] verts, int[] tris, Color32[] colors)
+    {
+        Mesh m = new Mesh();
+        m.vertices = verts;
+        m.triangles = tris;
+        m.colors32 = colors;
+        m.RecalculateNormals();
+        m.RecalculateTangents();
         MeshFilter meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null)
         {

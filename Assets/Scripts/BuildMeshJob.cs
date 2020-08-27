@@ -10,6 +10,11 @@ using UnityEngine;
     {
         #region static data
 
+        private static readonly int[] WindingOrder =
+        {
+            2, 1, 0
+        };
+        
         private static readonly int[] VertexOffset =
         {
             0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
@@ -584,17 +589,19 @@ using UnityEngine;
         #endregion
 
 //*/
+        [ReadOnly] public int chunkWidth;
+        [ReadOnly] public int chunkHeight;
         [ReadOnly] public NativeArray<int> map;
+        
         public NativeList<float3> verts;
         public NativeList<int> tris;
+        public NativeList<int2> uvs;
 
         // [ReadOnly] public NativeArray<int> VertexOffset;
         // [ReadOnly] public NativeArray<int> EdgeConnection;
         // [ReadOnly] public NativeArray<float> EdgeDirection;
         // [ReadOnly] public NativeArray<int> CubeEdgeFlags;
         // [ReadOnly] public NativeArray<int> TriangleConnectionTable;
-        [ReadOnly] public int chunkWidth;
-        [ReadOnly] public int chunkHeight;
 
         public void Execute()
         {
@@ -631,18 +638,19 @@ using UnityEngine;
         private float GetOffset(float v1, float v2)
         {
             float delta = v2 - v1;
-            return (delta == 0.0f) ? 0.2f : (0.2f - v1) / delta;
+            return (delta == 0.0f) ? 0.5f : (0.5f - v1) / delta;
         }
         public void BuildMeshData(int3 position, NativeArray<int> cubeData, ref int currentIndex)
         {
-            NativeArray<float3> EdgeVertex = new NativeArray<float3>(12, Allocator.Temp);
+            NativeArray<float4> EdgeVertex = new NativeArray<float4>(12, Allocator.Temp);
             float offset = 2;
             int vert = 2;
+            int2 uv = new int2(0, 0);
 
             int flagIndex = 0;
 
             for (int i = 0; i < 8; i++)
-                if (cubeData[i] == 1)
+                if (cubeData[i] != 0)
                     flagIndex |= 1 << i;
 
             int edgeFlags = CubeEdgeFlags[flagIndex];
@@ -656,18 +664,22 @@ using UnityEngine;
                 //if there is an intersection on this edge
                 if ((edgeFlags & (1 << i)) != 0)
                 {
-                    offset = GetOffset(cubeData[EdgeConnection[i * 2 + 0]],
-                        cubeData[EdgeConnection[i * 2 + 1]]);
+                    var vertex1 = cubeData[EdgeConnection[i * 2 + 0]];
+                    var vertex2 = cubeData[EdgeConnection[i * 2 + 1]];
+                    var edgeConnection = EdgeConnection[i * 2 + 0];
+                    var direction = new float3(EdgeDirection[i * 3 + 0],
+                        EdgeDirection[i * 3 + 1],
+                        EdgeDirection[i * 3 + 2]);
+                    var vertexOffset = new float3(VertexOffset[edgeConnection * 3 + 0],
+                        VertexOffset[edgeConnection * 3 + 1],
+                        VertexOffset[edgeConnection * 3 + 2]);
+                    offset = GetOffset(vertex1, vertex2);
+                    var t = direction.x != 0 ? direction.x : direction.y != 0 ? direction.y : direction.z;
                     var edgeVertex = EdgeVertex[i];
-                    edgeVertex.x =
-                        position.x + (VertexOffset[EdgeConnection[i * 2 + 0] * 3 + 0] +
-                                      offset * EdgeDirection[i * 3 + 0]);
-                    edgeVertex.y =
-                        position.y + (VertexOffset[EdgeConnection[i * 2 + 0] * 3 + 1] +
-                                      offset * EdgeDirection[i * 3 + 1]);
-                    edgeVertex.z =
-                        position.z + (VertexOffset[EdgeConnection[i * 2 + 0] * 3 + 2] +
-                                      offset * EdgeDirection[i * 3 + 2]);
+                    edgeVertex.x = position.x + (vertexOffset.x + offset * direction.x);
+                    edgeVertex.y = position.y + (vertexOffset.y + offset * direction.y);
+                    edgeVertex.z = position.z + (vertexOffset.z + offset * direction.z);
+                    edgeVertex.w = t >= 0 ?  vertex1 : vertex2;
                     EdgeVertex[i] = edgeVertex;
                 }
 
@@ -682,10 +694,11 @@ using UnityEngine;
                 for (int j = 0; j < 3; j++)
                 {
                     vert = TriangleConnectionTable[flagIndex * 16 + 3 * i + j];
-                    var value = currentIndex + j;
+                    var value = currentIndex + WindingOrder[j];
                     // triangles[currentIndex + j] = value;
                     // vertices[currentIndex + j] = EdgeVertex[vert];
-                    verts.Add(EdgeVertex[vert]);
+                    verts.Add(EdgeVertex[vert].xyz);
+                    uvs.Add(new int2((int) EdgeVertex[vert].w - 1,15));
                     tris.Add(value);
                     // Debug.Log("vert " + vert + " index " + (currentIndex + j) + " value " + value);
                 }

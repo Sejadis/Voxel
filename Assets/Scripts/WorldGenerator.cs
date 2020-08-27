@@ -28,6 +28,10 @@ public class WorldGenerator : MonoBehaviour
     public int batchSize = 1;
 
     private Dictionary<int3, Chunk> chunks = new Dictionary<int3, Chunk>();
+    public Color32 error = new Color32(255, 0, 0, 255);
+    public Color32 surface = new Color32(0, 255, 0, 255);
+    public Color32 mountain = new Color32(107, 107, 107, 255);
+    public Color32 earth = new Color32(112, 55, 14, 255);
 
     public bool useParallel;
 
@@ -147,6 +151,8 @@ public class WorldGenerator : MonoBehaviour
 
         List<NativeList<int>> triangleList = new List<NativeList<int>>();
         List<NativeList<float3>> verticesList = new List<NativeList<float3>>();
+        List<NativeList<int2>> uvList = new List<NativeList<int2>>();
+
 
 #if injectData
         if (!isInited)
@@ -187,6 +193,7 @@ public class WorldGenerator : MonoBehaviour
 
                 var verts = new NativeList<float3>(Allocator.TempJob);
                 var tris = new NativeList<int>(Allocator.TempJob);
+                var uvs = new NativeList<int2>(Allocator.TempJob);
 
                 JobHandle handle;
 
@@ -217,6 +224,7 @@ public class WorldGenerator : MonoBehaviour
                     handle = job.Schedule();
                 }
 
+                JobHandle.ScheduleBatchedJobs();
                 var job2 = new BuildMeshJob()
                 {
                     chunkHeight = ChunkHeight,
@@ -231,11 +239,13 @@ public class WorldGenerator : MonoBehaviour
 #endif
                     tris = tris,
                     verts = verts,
+                    uvs = uvs,
                 };
                 handle = job2.Schedule(handle);
 
                 triangleList.Add(tris);
                 verticesList.Add(verts);
+                uvList.Add(uvs);
 
                 maps.Add(map);
                 chunkList.Add(chunk);
@@ -251,6 +261,7 @@ public class WorldGenerator : MonoBehaviour
             chunkList[i].map = maps[i].ToArray();
             maps[i].Dispose();
 
+            var tris = triangleList[i].ToArray();
             Vector3[] verts = new Vector3[verticesList[i].Length];
             var x = 0;
             foreach (var vertex in verticesList[i])
@@ -258,10 +269,51 @@ public class WorldGenerator : MonoBehaviour
                 verts[x++] = new Vector3(vertex.x, vertex.y, vertex.z);
             }
 
-            var tris = triangleList[i].ToArray();
-            chunkList[i].SetMesh(verts, tris);
+            Color32[] colors = new Color32[uvList[i].Length];
+            Color32 lastColor = new Color32();
+            x = 0;
+            foreach (var uv in uvList[i])
+            {
+                Color32 c = error;
+                switch (uv.x)
+                {
+                    case -1:
+                    {
+                        c = lastColor;
+                        break;
+                    }
+                    case 0:
+                    {
+                        c = surface;
+                        break;
+                    }
+                    case 1:
+                    {
+                        c = earth;
+                        break;
+                    }
+                    case 2:
+                    {
+                        c = mountain;
+                        break;
+                    }
+                }
+
+                lastColor = c;
+                colors[x++] = c;
+            }
+            // Vector2[] uvs = new Vector2[uvList[i].Length];
+            // x = 0;
+            // foreach (var uv in uvList[i])
+            // {
+            //     uvs[x++] = new Vector2(uv.x, uv.y);
+            // }
+
+            // chunkList[i].SetMesh(verts, tris, uvs);
+            chunkList[i].SetMesh(verts, tris, colors);
             verticesList[i].Dispose();
             triangleList[i].Dispose();
+            uvList[i].Dispose();
             chunks[new int3(chunkList[i].position)] = chunkList[i];
         }
 
@@ -315,7 +367,7 @@ public class WorldGenerator : MonoBehaviour
 
         // Debug.Log(watch.Elapsed.ToString());
     }
-    
+
     private void Update()
     {
         int3 pos = new int3(cameraTransform.position);
@@ -412,6 +464,7 @@ public class WorldGenerator : MonoBehaviour
 
         var verts = new NativeList<float3>(Allocator.TempJob);
         var tris = new NativeList<int>(Allocator.TempJob);
+        var uvs = new NativeList<int2>(Allocator.TempJob);
 
         JobHandle handle;
 
@@ -456,6 +509,7 @@ public class WorldGenerator : MonoBehaviour
 #endif
             tris = tris,
             verts = verts,
+            uvs = uvs,
         };
         handle = job2.Schedule(handle);
         handle.Complete();
@@ -469,10 +523,45 @@ public class WorldGenerator : MonoBehaviour
             vertsV3[x++] = new Vector3(vertex.x, vertex.y, vertex.z);
         }
 
+        Color32[] colors = new Color32[uvs.Length];
+        Color32 lastColor = new Color32();
+        x = 0;
+        foreach (var uv in uvs)
+        {
+            Color32 c = error;
+            switch (uv.x)
+            {
+                case -1:
+                {
+                    c = lastColor;
+                    break;
+                }
+                case 0:
+                {
+                    c = surface;
+                    break;
+                }
+                case 1:
+                {
+                    c = earth;
+                    break;
+                }
+                case 2:
+                {
+                    c = mountain;
+                    break;
+                }
+            }
+
+            lastColor = c;
+            colors[x++] = c;
+        }
+
         var trisArr = tris.ToArray();
-        chunk.SetMesh(vertsV3, trisArr);
+        chunk.SetMesh(vertsV3, trisArr, colors);
         verts.Dispose();
         tris.Dispose();
+        uvs.Dispose();
         chunks[position] = chunk;
     }
 }

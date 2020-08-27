@@ -17,6 +17,7 @@
         }
         CGPROGRAM
         // Physically based Standard lighting model, and enable shadows on all light types
+        #pragma vertex vert
         #pragma surface surf Standard fullforwardshadows
 
         // Use shader model 3.0 target, to get nicer looking lighting
@@ -26,8 +27,15 @@
 
         struct Input
         {
-            float2 uv_MainTex;
+         //   float2 uv_MainTex;
+            float3 vertColors;
         };
+ 
+        void vert(inout appdata_full v, out Input o)
+        {
+          o.vertColors= v.color;    // grab vertex colors from appdata
+          //o.uv_Detail = v.texcoord;   // maybe need this
+        }   
 
         half _Glossiness;
         half _Metallic;
@@ -43,12 +51,17 @@
         void surf (Input IN, inout SurfaceOutputStandard o)
         {
             // Albedo comes from a texture tinted by color
-            fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
+            //fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
+            //o.Albedo = c.rgb;
+            
+            fixed3 c = IN.vertColors;// * _Color;
             o.Albedo = c.rgb;
+            //o.Albedo = IN.color.rgb * _Color;
+            
             // Metallic and smoothness come from slider variables
             o.Metallic = _Metallic;
             o.Smoothness = _Glossiness;
-            o.Alpha = c.a;
+            //o.Alpha = c.a;
         }
         ENDCG
     }

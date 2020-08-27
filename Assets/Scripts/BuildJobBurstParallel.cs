@@ -32,7 +32,6 @@ using UnityEngine;
             var ratioNoise = Noise.Perlin2D(new int2(pos.x, 1), Settings.ratioNoise.scale,
                 Settings.ratioNoise.offset, new int2(1234, 1));
 
-
             var noise2D = Noise.Perlin2D(new int2(pos.x, pos.z), Settings.surfaceNoise.scale,
                 Settings.surfaceNoise.offset, dim2D);
             var terrain = Mathf.CeilToInt(noise2D * terrainHeight);
@@ -55,7 +54,7 @@ using UnityEngine;
                 // solid ground at the bottom
                 if (y <= solidGround)
                 {
-                    voxelValue = 0;
+                    voxelValue = 3;
                 }
                 //caves
                 else if (y < surfaceHeight + Settings.caveSettings.relativeCaveHeight)
@@ -73,30 +72,30 @@ using UnityEngine;
                                 dim2D);
                             var n = n1 * ratioNoise + (1 - ratioNoise) * n2;
                             voxelValue = y <= caveFloorHeight * 2 * n
-                                ? 0
-                                : 1;
+                                ? 2
+                                : 0;
                         }
                         //actual cave
                         else
                         {
-                            voxelValue = 1;
+                            voxelValue = 0;
                         }
                     }
                     //solid ground
                     else
                     {
-                        voxelValue = 0;
+                        voxelValue = 2;
                     }
                 }
                 //cave entrance
                 else if (isCave && Settings.caveSettings.entranceThreshold.IsWithinThreshold(entranceNoise))
                 {
-                    voxelValue = 1;
+                    voxelValue = 0;
                 }
                 //solid surface
                 else
                 {
-                    voxelValue = 0;
+                    voxelValue = 1;
                 }
             }
             //above surface
@@ -104,12 +103,12 @@ using UnityEngine;
             else if (Settings.surfaceThreshold.IsWithinThreshold(surfaceNoise) &&
                      y <= surfaceHeight + maxSurfaceHeight)
             {
-                voxelValue = 0;
+                voxelValue = 3;
             }
             //air 
             else
             {
-                voxelValue = 1;
+                voxelValue = 0;
             }
             
             map[index] = voxelValue;
